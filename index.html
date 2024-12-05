@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="nabla-gflownet">
+    <meta name="keywords" content="reward finetuning, diffusion model, gflownet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nabla-GFlowNet</title>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E0HR9YQK2K"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-E0HR9YQK2K');
+    </script>
+
+
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+    <link rel="stylesheet" href="./static/css/bulma.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="./static/css/fontawesome.all.min.css"> 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <!-- <link rel="stylesheet" href="./static/css/avatarclip_main.css"> -->
+    <link rel="stylesheet" href="./static/css/index.css">
+    <!-- <link rel="stylesheet" href="./static/css/avatarclip_main.css"> -->
+
+    <style>
+		.render_wrapper {
+			position: relative;
+            height: 300px;
+         }
+        .render_wrapper_small {
+			position: relative;
+            height: 200px;
+         }
+		.render_div {
+			position: absolute;
+			top: 0;
+			left: 0;
+		}
+
+        #interpolation-image-wrapper-car{
+            text-align: center;
+        }
+        #interpolation-image-wrapper-chair{
+            text-align: center;
+        }
+        .nested-columns {
+            margin-bottom: 0 !important;
+        }
+        <!-- * {box-sizing: border-box;}
+        .img-comp-container {
+            position: relative;
+            height: 320px; /*should be the same height as the images*/
+          }
+          
+        .img-comp-img {
+        position: absolute;
+        width: auto;
+        height: auto;
+        overflow:hidden;
+        }
+        
+        .img-comp-img img {
+        display:block;
+        vertical-align:middle;
+        }
+        
+        .img-comp-slider {
+        position: absolute;
+        z-index:9;
+        cursor: ew-resize;
+        /*set the appearance of the slider:*/
+        width: 20px;
+        height: 20px;
+        background-color: #2196F3;
+        opacity: 0.7;
+        border-radius: 50%;
+        } 
+    </style>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="./static/js/fontawesome.all.min.js"></script>
+    <script src="./static/js/bulma-carousel.min.js"></script>
+    <script src="./static/js/bulma-slider.min.js"></script>
+    <script src="https://unpkg.com/interactjs/dist/interact.min.js"></script>
+    <script src="./static/js/index.js"></script>
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+    </script>
+    <script type="text/javascript"
+      src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+    <script>
+        function initComparisons() {
+            var x, i;
+            /* Find all elements with an "overlay" class: */
+            x = document.getElementsByClassName("img-comp-overlay");
+            for (i = 0; i < x.length; i++) {
+                /* Once for each "overlay" element:
+                pass the "overlay" element as a parameter when executing the compareImages function: */
+                compareImages(x[i]);
+            }
+            function compareImages(img) {
+                var slider, img, clicked = 0, w, h;
+                /* Get the width and height of the img element */
+                w = img.offsetWidth;
+                h = img.offsetHeight;
+                /* Set the width of the img element to 50%: */
+                img.style.width = (w / 2) + "px";
+                /* Create slider: */
+                slider = document.createElement("DIV");
+                slider.setAttribute("class", "img-comp-slider");
+                /* Insert slider */
+                img.parentElement.insertBefore(slider, img);
+                /* Position the slider in the middle: */
+                slider.style.top = (h / 2) - (slider.offsetHeight / 2) + "px";
+                slider.style.left = (w / 2) - (slider.offsetWidth / 2) + "px";
+                /* Execute a function when the mouse button is pressed: */
+                slider.addEventListener("mousedown", slideReady);
+                /* And another function when the mouse button is released: */
+                window.addEventListener("mouseup", slideFinish);
+                /* Or touched (for touch screens: */
+                slider.addEventListener("touchstart", slideReady);
+                /* And released (for touch screens: */
+                window.addEventListener("touchend", slideFinish);
+                function slideReady(e) {
+                /* Prevent any other actions that may occur when moving over the image: */
+                e.preventDefault();
+                /* The slider is now clicked and ready to move: */
+                clicked = 1;
+                /* Execute a function when the slider is moved: */
+                window.addEventListener("mousemove", slideMove);
+                window.addEventListener("touchmove", slideMove);
+                }
+                function slideFinish() {
+                /* The slider is no longer clicked: */
+                clicked = 0;
+                }
+                function slideMove(e) {
+                var pos;
+                /* If the slider is no longer clicked, exit this function: */
+                if (clicked == 0) return false;
+                /* Get the cursor's x position: */
+                pos = getCursorPos(e)
+                /* Prevent the slider from being positioned outside the image: */
+                if (pos < 0) pos = 0;
+                if (pos > w) pos = w;
+                /* Execute a function that will resize the overlay image according to the cursor: */
+                slide(pos);
+                }
+                function getCursorPos(e) {
+                var a, x = 0;
+                e = (e.changedTouches) ? e.changedTouches[0] : e;
+                /* Get the x positions of the image: */
+                a = img.getBoundingClientRect();
+                /* Calculate the cursor's x coordinate, relative to the image: */
+                x = e.pageX - a.left;
+                /* Consider any page scrolling: */
+                x = x - window.pageXOffset;
+                return x;
+                }
+                function slide(x) {
+                /* Resize the image: */
+                img.style.width = x + "px";
+                /* Position the slider: */
+                slider.style.left = img.offsetWidth - (slider.offsetWidth / 2) + "px";
+                }
+            }
+        }
+    </script> 
+</head>
+
+<body>
+
+    <section class="hero">
+        <div class="hero-body">
+            <div class="container is-max-desktop">
+                <div class="columns is-centered">
+                    <div class="column has-text-centered">
+                        <h1 class="title is-3 publication-title">Efficient Diversity-Preserving Reward Finetuning of Diffusion Models via GFlowNets</h1>
+                        <h4 class="is-size-4" style="font-family: helvetica;">Technical Report</h4>
+                        <div class="is-size-5 publication-authors">
+                            <span class="author-block">
+                                <a href="https://itszhen.com/">Zhen Liu</a><sup>1,2,&dagger;</sup>,</span>
+                            <span class="author-block">
+                                <a href="https://timx.me/">Tim Z. Xiao</a><sup>2,3,*</sup>,</span>
+                            <span class="author-block">
+                                <a href="https://wyliu.com/"> Weiyang Liu</a><sup>2,4,*</sup>,
+                            </span>
+                            <span class="author-block">
+                                <a href="https://yoshuabengio.org/"> Yoshua Bengio</a><sup>1</sup>,
+                            </span>
+                            <span class="author-block">
+                                <a href="https://zdhnarsil.github.io/"> Dinghuai Zhang</a><sup>1,&dagger;</sup>
+                            </span>
+                        </div>
+
+                        <div class="is-size-5 publication-authors">
+                            <span class="author-block"><sup>1</sup>Mila, Université de Montréal, </span>
+                            <span class="author-block"><sup>2</sup>Max Planck Institute for Intelligent Systems - Tübingen, </span> <br>
+                            <span class="author-block"><sup>3</sup>University of Tübingen, </span>
+                            <span class="author-block"><sup>4</sup>Cambridge University</span> <br>
+                            <span class="author-block"><sup>&dagger;</sup>Corresponding author</span>&nbsp;&nbsp;
+                            <span class="author-block"><sup>*</sup>Equal contribution</span>&nbsp;&nbsp;
+                        </div>
+
+                        <div class="column has-text-centered">
+                            <div class="publication-links">
+                                <span class="link-block">
+                                    <a class="external-link button is-normal is-rounded is-dark" href="">
+                                        <span class="icon">
+                                            <i class="ai ai-arxiv"></i>
+                                        </span>
+                                        <span>arXiv</span>
+                                    </a>
+                                </span>
+                                <!-- PDF Link. -->
+                                <span class="link-block">
+                                    <a href="./static/paper/nabla-gfn.pdf"
+                                        class="external-link button is-normal is-rounded is-dark">
+                                        <span class="icon">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </span>
+                                        <span>Paper</span>
+                                    </a>
+                                </span>
+
+                                <!-- Github Link. -->
+                                <span class="link-block">
+                                    <a class="external-link button is-normal is-rounded is-dark" href="">
+                                        <span class="icon">
+                                            <i class="fab fa-github"></i>
+                                        </span>
+                                        <span>Code</span>
+                                    </a>
+                                </span>
+                                <span class="link-block"></span>
+                            </div>
+                            <br>
+                            <!-- <div class="is-size-5 publication-authors">
+                                <h3>2023</h3>
+                            </div> -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+<!-- 
+    <section class="hero teaser">
+        <div class="container is-max-desktop">
+            <div class="hero-body">
+                <img src="./static/teaser/teaser.png" height="150%" style="margin-left: auto;margin-right: auto;display: block;"/>
+                <h3 class="is-size-6 subtitle has-text-centered" style="padding-top: 10px">
+                    <p align="left">
+                        The creation of photorealistic virtual worlds requires the accurate modeling of 3D surface geometry for a wide range of objects. 
+                        For this, meshes are appealing since they 
+                        1) enable fast physics-based rendering with realistic material and lighting, 
+                        2) support physical simulation, and 
+                        3) are memory-efficient for modern graphics pipelines. 
+                        Recent work on reconstructing and statistically modeling 3D shape, however, has critiqued meshes as being topologically inflexible. 
+                        To capture a wide range of object shapes, any 3D representation must be able to model solid, watertight, shapes as well as thin, open, surfaces. 
+                        Recent work has focused on the former, and methods for reconstructing open surfaces do not support fast reconstruction with material and lighting or unconditional generative modelling. 
+                        Inspired by the observation that open surfaces can be seen as islands floating on watertight surfaces, 
+                        we parameterize open surfaces by defining a manifold signed distance field on watertight templates. 
+                        With this parameterization, we further develop a grid-based and differentiable representation 
+                        that parameterizes both watertight and non-watertight meshes of arbitrary topology. 
+                        Our new representation, called Ghost-on-the-Shell (G-Shell), 
+                        enables two important applications: 
+                        differentiable rasterization-based reconstruction from multiview images and generative modelling of non-watertight meshes. 
+                        We empirically demonstrate that G-Shell achieves state-of-the-art performance on non-watertight mesh reconstruction and generation tasks, 
+                        while also performing effectively for watertight meshes.
+                    </p>
+                </h3>
+            </div>
+        </div>
+    </section> -->
+
+    <section class="hero teaser">
+        <div class="container is-max-desktop">
+          <div class="hero-body">
+            <img src="./static/images/teaser.png" width="85%" style="margin-left: auto;margin-right: auto;display: block;">
+            <h2 class="subtitle">
+              <p>&nbsp;</p>
+              <p>
+                    <span class="dnerf">Nabla-GFlowNets</span> is an efficient, diversity-preserving finetuning method for foundation models by acheving
+              a balance between all ''forces'': 
+              </p>
+                <!-- <ul>
+                    <li>the score of the finetuned diffusion model</li>
+                    <li>the score of the pretrained model</li>
+                    <li>the (predicted) reward gradient</li>
+                    <li>the learned (residual) flow score function</li>
+                </ul> -->
+                <p>
+                    1) the score of the finetuned diffusion model,
+                    2) the score of the pretrained model,
+                </p>
+                <p>
+                    3) the (predicted) reward gradient,
+                    4) the learned (residual) flow score function
+                </p>
+            </h2>
+          </div>
+        </div>
+      </section>
+      
+
+    <section class="section">
+        <div class="container is-max-desktop">
+        <!-- Abstract. -->
+        <div class="columns is-centered has-text-centered">
+            <div class="column is-four-fifths">
+            <h2 class="title is-3">Abstract</h2>
+            <div class="content has-text-justified">
+                <p>
+                    While one commonly trains large diffusion models by collecting datasets on target downstream tasks, 
+                        it is often desired to finetune pretrained diffusion models on some reward functions that are 
+                        either designed by experts or learned from small-scale datasets. 
+                    Existing methods for finetuning diffusion models typically suffer from 
+                        lack of diversity in generated samples, lack of prior preservation, and/or slow convergence in finetuning. 
+                    Inspired by recent successes in generative flow networks (GFlowNets), 
+                        a class of probabilistic models that sample with the unnormalized density of a reward function, 
+                        we propose a novel GFlowNet method dubbed Nabla-GFlowNet (abbreviated as \methodname),
+                        together with an objective called \graddb, plus its variant \resgraddb for finetuning pretrained diffusion models. 
+                    These objectives leverage the rich signal in reward gradients for diversity- and prior-aware finetuning.
+                    We show that our proposed method achieves fast yet diversity- and prior-preserving finetuning of Stable Diffusion, 
+                    a large-scale text-conditioned image diffusion model, on different realistic reward functions.
+                </p>
+            </div>
+            </div>
+        </div>
+        <!--/ Abstract. -->
+        </div>
+    </section>
+
+
+
+
+    <section class="section">
+        <div class="container is-max-desktop">
+            <h2 class="title is-4">Qualitative Comparison on Aesthetic Score</h2>
+            <div class="content has-text-justified">
+                <img src="./static/images/aesthetic_comparison.png" width="100%" style="margin-left: auto;margin-right: auto;display: block;">
+                <p>
+                    We finetune all models for 200 update steps and pick the model with the best reward but without collapsed samples.
+                </p>
+              </div>
+        </div>
+    </section>
+    <br>
+
+
+    <section class="section">
+        <div class="container is-max-desktop">
+            <div class="container is-max-desktop">
+   
+
+            <!-- Overview. -->
+            <div class="columns is-centered" style="margin-top: 15px">
+                <div class="column is-full-width">
+
+                    <h2 class="title is-4">Core Idea</h2>
+
+                    <div class="content has-text-justified" style="padding-top: 15px">
+                        <p> 
+                        <img src="./static/images/method_formula.png" width="60%" style="margin-left: auto;margin-right: auto;display: block;"/>
+                        <div class="content has-text-justified" style="padding-top: 15px">
+                            <p> 
+                                We treat the inference process of a diffusion model as a GFlowNet, which satisfies the Detailed Balance (DB) condition:
+                                    the forward (denoising) P<sub>F</sub> and the backward (noising) P<sub>B</sub> process must be bridged by a function called the flow function F(x_t).
+                            </p>
+                            <p>
+                                From the DB condition, we derive the equivalent gradient-informed &nabla;-DB condition
+                                    that is better suited for diffusion models.
+                            </p>
+                            <p>
+                                Given a pretrained model P<sub>F</sub><sup>#</sup> as the prior, we further derive the Residual &nabla;-DB condition.
+                            </p>
+                        </div>
+                        </p>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </section>
+
+
+
+    <section class="section" id="BibTeX">
+        <div class="container is-max-desktop content">
+            <h2 class="title">BibTeX</h2>
+            <pre>
+<code>
+    
+</code></pre>
+        </div>
+    </section>
+
+
+    <footer class="footer">
+        <div class="container">
+            <div class="content has-text-centered">
+                <a class="icon-link" href="">
+                    <i class="fas fa-file-pdf"></i>
+                </a>
+                <a class="icon-link" href="" class="external-link" disabled>
+                    <i class="fab fa-github"></i>
+                </a>
+            </div>
+            <div class="columns is-centered">
+                <div class="column is-8">
+                    <div class="content">
+                        <p style="text-align:center">
+                            Source code mainly borrowed from <a href="https://keunhong.com/">Keunhong Park</a>'s
+                            <a href="https://nerfies.github.io/">Nerfies website</a> and
+                            <a href="https://niessnerlab.org/members/simon_giebenhain/profile.html">	Simon Giebenhain's</a> adoption for
+                            <a href="https://simongiebenhain.github.io/NPHM/">NPHM</a>.
+                        </p>
+                        <!-- <p style="text-align:center">
+                            Please contact <a href="https://is.mpg.de/~yfeng">Yao Feng</a> for feedback and questions.
+                        </p> -->
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+
+
+    <!-- Import maps polyfill -->
+    <!-- Remove this when import maps will be widely supported -->
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./static/js/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+
+        import { PLYLoader } from './static/js/PLYLoader.js';
+        import { OrbitControls } from './static/js/OrbitControls.js'
+        let div_to_scene = {
+            "mesh_chair_0": {
+                "geo": null,
+            },
+            "mesh_chair_1": {
+                "geo": null,
+            },
+            "mesh_chair_2": {
+                "geo": null,
+            },
+            "mesh_chair_3": {
+                "geo": null,
+            },
+            "mesh_car_0": {
+                "geo": null,
+            },
+            "mesh_car_1": {
+                "geo": null,
+            },
+            "mesh_car_2": {
+                "geo": null,
+            },
+            "mesh_car_3": {
+                "geo": null,
+            }
+        }
+        let div_to_render_scene = {
+            "mesh_style_0": {
+                "0": null,
+                "2": null,
+                "3": null,
+                "4": null,
+                "5": null,
+            },
+            "mesh_style_1": {
+                "0": null,
+                "2": null,
+                "3": null,
+                "4": null,
+                "5": null,
+            },
+            "mesh_style_2": {
+                "0": null,
+                "2": null,
+                "3": null,
+                "4": null,
+                "5": null,
+
+            },
+            "mesh_style_3": {
+                "0": null,
+                "2": null,
+                "3": null,
+                "4": null,
+                "5": null,
+            },
+        }
+        let mouse_button_down = false;
+        let list_of_orbit_controls = []
+        let style_camera = null;
+        let render_colors = false;
+        let style_id = "0"
+
+        function setup_camera(div_name){
+            let container = document.getElementById(div_name);
+            let width = container.parentElement.clientWidth;
+            let height = container.parentElement.clientHeight;
+            console.log(width, height)
+            let camera = new THREE.PerspectiveCamera( 35, width / height, 0.1, 50 );
+            let camera_init_position = new THREE.Vector3( -1.5, 0.35, 1.2 );
+            // let camera_init_position = new THREE.Vector3( 0., 0., 1.2 );
+            camera_init_position = camera_init_position.multiplyScalar(1.5)
+            //if (div_name.includes("style")) {
+            //    camera_init_position = camera_init_position.multiplyScalar(1.25)
+            //}
+            //else if (div_name.includes("style")) {
+            //    camera_init_position = camera_init_position.multiplyScalar(1.25)
+            //}
+            camera.position.set(camera_init_position.x, camera_init_position.y, camera_init_position.z);
+            return camera;
+        }
+
+        function setup_render_divs(div_name, mesh_path){
+            let camera = setup_camera(div_name)
+            let orbit_control = create_render_div(camera, div_name, mesh_path)
+            list_of_orbit_controls.push(orbit_control)
+        }
+
+        function setup_style_render_divs(div_name, mesh_path){
+            if (style_camera == null) {
+                style_camera = setup_camera(div_name)
+            }
+            let orbit_control = create_style_render_div(style_camera, div_name, mesh_path, true)
+            list_of_orbit_controls.push(orbit_control)
+            document.getElementById("style_button_0").addEventListener("click", set_style_0)
+            document.getElementById("style_button_2").addEventListener("click", set_style_2)
+            document.getElementById("style_button_3").addEventListener("click", set_style_3)
+            document.getElementById("style_button_4").addEventListener("click", set_style_4)
+            document.getElementById("style_button_5").addEventListener("click", set_style_5)
+        }
+
+        function create_render_div(camera, div_id, mesh_path) {
+            let container;
+            let renderer, controls;
+
+            init();
+            animate();
+
+            function init() {
+
+                container = document.getElementById(div_id);
+                let width = container.parentElement.clientWidth;
+                let height = container.parentElement.clientHeight;
+
+
+                div_to_scene[div_id]["geo"] = new THREE.Scene();
+                div_to_scene[div_id]["geo"].background = new THREE.Color( 0xffffff );
+                //var axesHelper = new THREE.AxesHelper( 5 );
+                //div_to_scene[div_id]["geo"].add( axesHelper );
+
+                // PLY file
+
+                const loader = new PLYLoader();
+                loader.load( mesh_path, function ( geometry ) {
+
+                    geometry.computeVertexNormals();
+                    //let material_geo = new THREE.MeshPhongMaterial( { color: 0x999999, depthWrite: false} )
+                    //const material_geo = new THREE.MeshPhongMaterial( {
+                    //                                color: 0xffffff,
+                    //                                specular: 0x222222,
+                    //                                shininess: 25,} ); 
+                    
+                    //const material_geo = new THREE.MeshPhongMaterial( {
+                    //    vertexColors: false,
+                    //    color: 0xffffff, //0xCCE6FF,
+                    //    flatShading: true,
+                    //    specular: 0x222222,
+                    //    shininess: 25,} );
+                    let material_geo = new THREE.MeshStandardMaterial( { color: 0xffffff, flatShading: true, roughness: 0.6, metalness: 0.2 } )
+
+                    const mesh_geo = new THREE.Mesh( geometry, material_geo);
+                    // mesh_geo.castShadow = true;
+				    //mesh_geo.receiveShadow = true;
+                    div_to_scene[div_id]["geo"].add( mesh_geo );
+
+                }, (xhr) => {
+                    console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+                }, (error) => {
+                    console.log(error)
+                }
+                );
+
+                // lights
+
+                //div_to_scene[div_id]["geo"].add( new THREE.HemisphereLight( 0x333333, 0x222222) );
+                //div_to_scene[div_id]["geo"].add(new THREE.AmbientLight( 0x333333, 1) );
+                //const directionalLight = new THREE.DirectionalLight( 0xffffff, 1. );
+                //directionalLight.position.set( 1, 1, 1 );
+                //div_to_scene[div_id]["geo"].add( directionalLight );
+                //addShadowedLight(div_to_scene[div_id]["geo"], -5, -5, 5, 0xffffff, 1. );
+                //addShadowedLight(div_to_scene[div_id]["geo"], 1, 1, 1, 0xffffff, 1.35 );
+                //addShadowedLight(div_to_scene[div_id]["geo"], -1, 1, -1, 0xffffff, 1.35 );
+                //addShadowedLight(div_to_scene[div_id]["geo"], 0, -2, 1, 0xffffff, 0.5 );
+                //addShadowedLight(div_to_scene[div_id]["geo"],  0, -1, 2, 0xffffff, 0.5 );
+
+                add_lights(div_to_scene[div_id]["geo"])
+
+
+
+
+                // renderer
+
+                renderer = new THREE.WebGLRenderer( { antialias: true } );
+                renderer.setPixelRatio( window.devicePixelRatio );
+                renderer.setSize( width, height);
+                renderer.outputEncoding = THREE.sRGBEncoding;
+
+                //renderer.shadowMap.enabled = true;
+
+                container.appendChild( renderer.domElement );
+
+                controls = new OrbitControls(camera, renderer.domElement)
+                controls.enableDamping = false
+                controls.autoRotate = true
+
+
+                // resize
+
+                window.addEventListener( 'resize', onWindowResize );
+                //controls.addEventListener('change', onChange)
+                controls.addEventListener('start', function(){
+                  //clearTimeout(autorotateTimeout);
+                  controls.autoRotate = false;
+                });
+
+                // restart autorotate after the last interaction & an idle time has passed
+                //this.controls.addEventListener('end', function(){
+                //  autorotateTimeout = setTimeout(function(){
+                //    controls.autoRotate = true;
+                //  }, 1000);
+                //});
+
+        }
+            function onWindowResize() {
+                let width = container.clientWidth;
+                let height = container.clientHeight;
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize( width, height );
+            }
+            function animate() {
+                requestAnimationFrame( animate );
+                controls.update();
+                render();
+            }
+
+            function render() {
+                renderer.render( div_to_scene[div_id]["geo"], camera );
+                controls.update();
+            }
+
+            return controls;
+        }
+
+        function add_lights(scene) {
+                scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ,0.05) );
+				const spotLight = new THREE.SpotLight( 0xffffff, 0.5 );
+				spotLight.position.set( 0.0, 0.5, 1 );
+				const spotLight2 = new THREE.SpotLight( 0xffffff, 0.25 );
+			    spotLight2.position.set( -2, 0.3, -0.2 );
+				const spotLight3 = new THREE.SpotLight( 0xffffff, 0.25 );
+				spotLight3.position.set( 2, -0.3, 0.2 );
+				const spotLight4 = new THREE.SpotLight( 0xffffff, 0.25 );
+				spotLight4.position.set( 0.0, 1, -2 );
+				const spotLight5 = new THREE.SpotLight( 0xffffff, 0.05 );
+				spotLight5.position.set( 0, -2.5, -1 );
+				////spotLight.position.multiplyScalar( 700 );
+				scene.add( spotLight );
+				scene.add( spotLight2 );
+				scene.add( spotLight3 );
+				scene.add( spotLight4 );
+				scene.add( spotLight5 );
+
+
+        }
+
+        function add_lightsBACKUP(scene) {
+                scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ,0.05) );
+				const spotLight = new THREE.SpotLight( 0xffffff, 0.6 );
+				spotLight.position.set( 0.5, 0.5, 1 );
+				const spotLight2 = new THREE.SpotLight( 0xffffff, 0.3 );
+				spotLight2.position.set( -0.75, 0.2, 0 );
+				const spotLight3 = new THREE.SpotLight( 0xffffff, 0.3 );
+				spotLight3.position.set( -0.5, 0, 1 );
+				const spotLight4 = new THREE.SpotLight( 0xffffff, 0.3 );
+				spotLight4.position.set( 0.5, 0.5, -1 );
+				const spotLight5 = new THREE.SpotLight( 0xffffff, 0.15 );
+				spotLight5.position.set( 0, -1.5, 0 );
+				////spotLight.position.multiplyScalar( 700 );
+				scene.add( spotLight );
+				scene.add( spotLight2 );
+				//div_to_scene[div_id]["geo"].add( spotLight3 );
+				scene.add( spotLight4 );
+				scene.add( spotLight5 );
+        }
+
+        function create_style_render_div(camera, div_id, mesh_path) {
+            let container;
+            let renderer, controls;
+
+            init();
+            animate();
+
+            function init() {
+
+                container = document.getElementById(div_id);
+                let width = container.parentElement.clientWidth;
+                let height = container.parentElement.clientHeight;
+
+
+                div_to_render_scene[div_id]["0"] = new THREE.Scene();
+                div_to_render_scene[div_id]["1"] = new THREE.Scene();
+                div_to_render_scene[div_id]["2"] = new THREE.Scene();
+                div_to_render_scene[div_id]["3"] = new THREE.Scene();
+                div_to_render_scene[div_id]["4"] = new THREE.Scene();
+                div_to_render_scene[div_id]["5"] = new THREE.Scene();
+                div_to_render_scene[div_id]["6"] = new THREE.Scene();
+                div_to_render_scene[div_id]["0"].background = new THREE.Color( 0xffffff );
+                div_to_render_scene[div_id]["1"].background = new THREE.Color( 0xffffff );
+                div_to_render_scene[div_id]["2"].background = new THREE.Color( 0xffffff );
+                div_to_render_scene[div_id]["3"].background = new THREE.Color( 0xffffff );
+                div_to_render_scene[div_id]["4"].background = new THREE.Color( 0xffffff );
+                div_to_render_scene[div_id]["5"].background = new THREE.Color( 0xffffff );
+                div_to_render_scene[div_id]["6"].background = new THREE.Color( 0xffffff );
+
+                // PLY file
+
+                const loader = new PLYLoader();
+                ["0","2", "3", "4", "5"].forEach(id => {
+                    loader.load( mesh_path + id + ".ply", function ( geometry ) {
+                        geometry.computeVertexNormals();
+                        //let material = new THREE.MeshStandardMaterial( { color: 0xffffff} );
+                        const material = new THREE.MeshPhongMaterial( {
+                                                color: 0xCCE6FF,
+                                                specular: 0x222222,
+                                                shininess: 25,} );
+                        const mesh_color = new THREE.Mesh( geometry, material );
+                        div_to_render_scene[div_id][id].add( mesh_color );
+                        //if (id === "0") {
+                        //let material_geo = new THREE.MeshStandardMaterial( { color: 0x444444, flatShading: true } )
+                        //const mesh_geo = new THREE.Mesh( geometry, material_geo );
+                        //div_to_render_scene[div_id]["geo"].add( mesh_geo );
+                        //}
+                        //div_to_render_scene[div_id][id].add( new THREE.HemisphereLight( 0x333333, 0x222222 ) );
+                        //addShadowedLight(div_to_render_scene[div_id][id], 1, 1, 1, 0xffffff, 1.35 );
+                        //addShadowedLight(div_to_render_scene[div_id][id],  0.5, 1, - 1, 0xffffff, 1 );
+                        add_lights(div_to_render_scene[div_id][id]);
+                    }, (xhr) => {
+                        console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+                    }, (error) => {
+                        console.log(error)
+                    }
+                    );
+                })
+
+
+
+                // renderer
+
+                renderer = new THREE.WebGLRenderer( { antialias: true } );
+                renderer.setPixelRatio( window.devicePixelRatio );
+                renderer.setSize( width, height);
+                renderer.outputEncoding = THREE.sRGBEncoding;
+
+                renderer.shadowMap.enabled = true;
+
+                container.appendChild( renderer.domElement );
+
+                controls = new OrbitControls(camera, renderer.domElement)
+                controls.enableDamping = false
+
+                // resize
+
+                window.addEventListener( 'resize', onWindowResize );
+
+        }
+            function onWindowResize() {
+                let width = container.clientWidth;
+                let height = container.clientHeight;
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize( width, height );
+            }
+            function animate() {
+                requestAnimationFrame( animate );
+                render();
+            }
+
+            function render() {
+                let scene = div_to_render_scene[div_id][style_id]
+                renderer.render( scene, camera );
+                controls.update();
+            }
+
+            return controls;
+        }
+
+        function addShadowedLight(scene, x, y, z, color, intensity ) {
+
+            const directionalLight = new THREE.DirectionalLight( color, intensity );
+            directionalLight.position.set( x, y, z );
+            scene.add( directionalLight );
+
+            directionalLight.castShadow = true;
+
+            const d = 1;
+            directionalLight.shadow.camera.left = - d;
+            directionalLight.shadow.camera.right = d;
+            directionalLight.shadow.camera.top = d;
+            directionalLight.shadow.camera.bottom = - d;
+
+            directionalLight.shadow.camera.near = 1;
+            directionalLight.shadow.camera.far = 4;
+
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+
+            directionalLight.shadow.bias = - 0.001;
+
+        }
+
+        document.addEventListener('keydown', logKey);
+
+        function logKey(evt) {
+            if (evt.keyCode === 71 && !mouse_button_down) {
+                switch_geometry()
+            }
+            if (evt.keyCode === 82 && !mouse_button_down) {
+                reset_orbit_controls()
+            }
+        }
+
+        function switch_geometry() {
+            render_colors = !render_colors
+        }
+
+        function reset_orbit_controls() {
+            list_of_orbit_controls.forEach(oc => {
+                oc.reset()
+                oc.autoRotate = false
+            })
+        }
+
+        function set_style_0(){
+            style_id = "0"
+        }
+
+        function set_style_1(){
+            style_id = "1"
+        }
+
+        function set_style_2(){
+            style_id = "2"
+        }
+
+        function set_style_3(){
+            style_id = "3"
+        }
+
+        function set_style_4(){
+            style_id = "4"
+        }
+        function set_style_5(){
+            style_id = "5"
+        }
+        function set_style_6(){
+            style_id = "6"
+        }
+
+        document.body.onmousedown = function(evt) {
+            if (evt.button === 0)
+                mouse_button_down = true
+        }
+        document.body.onmouseup = function(evt) {
+            if (evt.button === 0)
+                mouse_button_down = false
+        }
+
+        window.onload = function() {
+            let slider = document.getElementsByClassName("slider")[0]
+            slider.removeAttribute("tabIndex")
+            // slider.addEventListener("mouseout", reset_orbit_controls);
+            //DSC_7153_hybrid_0903_more_demo_
+            //setup_render_divs("mesh_chair_1", './results/mesh/subject_016_outfit_1_motion_1_hybrid_0903_more_demo_.ply')
+            //setup_render_divs("mesh_chair_3", './results/mesh/DSC_7153_hybrid_0903_more_demo_.ply') # 49
+            //setup_render_divs("mesh_car_4", './results/mesh/female_outfit2_hybrid_0903_more_demo_.ply')
+            //setup_render_divs("mesh_car_5", './results/mesh/male-3-casual_hybrid_0903_more_demo_.ply')
+            //setup_render_divs("mesh_car_6", './results/mesh/male_outfit1_hybrid_0903_more_demo_.ply')
+
+            setup_render_divs("mesh_chair_1", './results/mesh/chair1.ply')
+            setup_render_divs("mesh_chair_2", './results/mesh/chair2.ply')
+            setup_render_divs("mesh_chair_3", './results/mesh/chair3.ply')
+            setup_render_divs("mesh_car_1", './results/mesh/car1.ply')
+            setup_render_divs("mesh_car_2", './results/mesh/car2.ply')
+            setup_render_divs("mesh_car_3", './results/mesh/car3.ply')
+            setup_render_divs("mesh_airplane_1", './results/mesh/airplane1.ply')
+            setup_render_divs("mesh_airplane_2", './results/mesh/airplane2.ply')
+            setup_render_divs("mesh_airplane_3", './results/mesh/airplane3.ply')
+
+            
+            //setup_render_divs("mesh_chair_2", './models/mesh_0079.ply')
+            //setup_render_divs("mesh_chair_3", './models/mesh_0079.ply')
+            //setup_render_divs("mesh_car_1", './models/mesh_0112.ply')
+            //setup_render_divs("mesh_car_3", './models/mesh_0238.ply')
+            //setup_style_render_divs("mesh_style_0", './models/chair_style_0')
+            //setup_style_render_divs("mesh_style_1", './models/chair_style_1')
+            //setup_style_render_divs("mesh_style_2", './models/chair_style_2')
+            //setup_style_render_divs("mesh_style_3", './models/chair_style_3')
+            setup_style_render_divs("mesh_style_0", './models/mesh_mustafa_')
+            setup_style_render_divs("mesh_style_1", './models/mesh_id98_')
+            setup_style_render_divs("mesh_style_2", './models/mesh_id97_')
+            setup_style_render_divs("mesh_style_3", './models/mesh_id95_')
+        };
+
+    </script>
+    <script>
+        /*Execute a function that will execute an image compare function for each element with the img-comp-overlay class:*/
+        initComparisons();
+    </script>
+</body>
+
+</html>
